@@ -1,27 +1,28 @@
--- Busca servidores publicos vazios e solicita a entrada pelo botao.
+-- Busca servidores publicos com ate dois jogadores e solicita a entrada pelo botao.
 return function(ctx)
 	local state, Rayfield, Tab = ctx.state, ctx.Rayfield, ctx.Tab
 	local LocalPlayer, UIS = ctx.player, ctx.UIS
 
 	local ServerSearchBusy = false
 	Tab:CreateButton({
-		Name = "Servidor - Buscar vazio (0 jogadores)",
+		Name = "Servidor - Buscar com ate 2 jogadores",
 		Callback = function()
 			if ServerSearchBusy or not state.enabled then return end
 			ServerSearchBusy = true
 			task.spawn(function()
 				local teleportConnection = nil
 				local function notify(message)
-					if state.enabled then Rayfield:Notify({Title="Servidor vazio", Content=message, Duration=7}) end
+					if state.enabled then Rayfield:Notify({Title="Servidor com ate 2 jogadores", Content=message, Duration=7}) end
 				end
 				local ok, err = pcall(function()
 					local httpService = game:GetService("HttpService")
 					local cursor = nil
 					local candidate = nil
+					local candidateCount = math.huge
 					local minimum = math.huge
 					local pages = 0
 					local seen = {}
-					notify("Buscando servidores publicos com zero jogadores...")
+					notify("Buscando servidores publicos com ate 2 jogadores...")
 					repeat
 						if not state.enabled then return end
 						pages = pages + 1
@@ -36,18 +37,19 @@ return function(ctx)
 						for _, server in ipairs(data.data) do
 							if type(server.id) == "string" and server.id ~= game.JobId and type(server.playing) == "number" then
 								minimum = math.min(minimum, server.playing)
-								if server.playing == 0 then candidate = server.id; break end
+								if server.playing <= 2 and server.playing < candidateCount then
+									candidate = server.id
+									candidateCount = server.playing
+								end
 							end
 						end
 						cursor = data.nextPageCursor
-						-- A lista vem em ordem crescente: apos um servidor ocupado nao ha vazios nas paginas seguintes.
-						if minimum > 0 and minimum < math.huge then break end
 						if type(cursor) ~= "string" or cursor == "" or seen[cursor] then break end
 						seen[cursor] = true
-						if not candidate then task.wait(0.5) end
-					until candidate or pages >= 10
+						if candidateCount ~= 0 then task.wait(0.5) end
+					until candidateCount == 0 or pages >= 10
 					if not candidate then
-						notify(minimum < math.huge and ("Nenhum vazio listado. O menor encontrado tem " .. minimum .. " jogador(es). Voce permanece aqui.") or "Nenhum servidor vazio encontrado nas paginas consultadas.")
+						notify(minimum < math.huge and ("Nenhum servidor com ate 2 jogadores. O menor encontrado tem " .. minimum .. " jogador(es). Voce permanece aqui.") or "Nenhum outro servidor encontrado nas paginas consultadas.")
 						return
 					end
 					if not state.enabled then return end
@@ -58,7 +60,7 @@ return function(ctx)
 					teleportConnection = teleportService.TeleportInitFailed:Connect(function(player, _, message)
 						if player == LocalPlayer then failed = true; notify("Nao foi possivel entrar: " .. message) end
 					end)
-					notify("Servidor listado com zero jogadores encontrado. Entrando...")
+					notify("Servidor listado com " .. candidateCount .. " jogador(es) encontrado. Entrando...")
 					teleportService:TeleportToPlaceInstance(game.PlaceId, candidate, LocalPlayer)
 					local deadline = os.clock() + 15
 					repeat task.wait(0.2) until failed or not state.enabled or os.clock() >= deadline
