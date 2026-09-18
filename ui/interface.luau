@@ -47,7 +47,7 @@ return function(ctx)
 		Callback = function(v)
 			SaveName = v
 		end,
-	end)
+	})
 
 	TabTeleport:CreateButton({
 		Name = "Salvar pos + direcao + camera",
@@ -59,7 +59,7 @@ return function(ctx)
 			end
 			Rayfield:Notify({ Title = "Salvo!", Content = msg .. " (pos + dir + camera)", Duration = 4 })
 		end,
-	end)
+	})
 
 	Dropdown = TabTeleport:CreateDropdown({
 		Name = "Selecionar coordenada",
@@ -69,7 +69,7 @@ return function(ctx)
 			local name = typeof(opt) == "table" and opt[1] or opt
 			teleport.select(name)
 		end,
-	end)
+	})
 
 	TabTeleport:CreateButton({
 		Name = "Atualizar lista",
@@ -77,7 +77,7 @@ return function(ctx)
 			Dropdown:Refresh(teleport.listNames())
 			Rayfield:Notify({ Title = "Lista", Content = "Atualizada", Duration = 2 })
 		end,
-	end)
+	})
 
 	TabTeleport:CreateButton({
 		Name = "Teleportar para selecionada",
@@ -87,7 +87,7 @@ return function(ctx)
 				Rayfield:Notify({ Title = "Erro", Content = tostring(msg), Duration = 3 })
 			end
 		end,
-	end)
+	})
 
 	TabTeleport:CreateSlider({
 		Name = "Altura acima do chao",
@@ -97,7 +97,7 @@ return function(ctx)
 		Callback = function(v)
 			teleport.setHeight(v)
 		end,
-	end)
+	})
 
 	TabFarm:CreateButton({
 		Name = "Iniciar / Parar",
@@ -126,14 +126,14 @@ return function(ctx)
 				end
 			end)
 		end,
-	end)
+	})
 
 	TabFarm:CreateButton({
 		Name = "Ver status",
 		Callback = function()
 			Rayfield:Notify({ Title = "Auto farm", Content = state.status, Duration = 6 })
 		end,
-	end)
+	})
 
 	TabFarm:CreateButton({
 		Name = "Coletar ShoomPiles",
@@ -143,14 +143,14 @@ return function(ctx)
 				Rayfield:Notify({ Title = "ShoomPiles", Content = tostring(msg), Duration = 3 })
 			end
 		end,
-	end)
+	})
 
 	TabUtils:CreateButton({
 		Name = "Buscar servidor (<=2 jogadores)",
 		Callback = function()
 			servers.searchLowPop()
 		end,
-	end)
+	})
 
 	TabUtils:CreateButton({
 		Name = "DESINJETAR",
@@ -161,7 +161,7 @@ return function(ctx)
 			pcall(function() Rayfield:Destroy() end)
 			print("Desinjetado")
 		end,
-	end)
+	})
 
 	return {
 		Rayfield = Rayfield,
