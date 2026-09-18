@@ -10,6 +10,28 @@ return function(ctx)
 	local Tags = game:GetService("CollectionService")
 	local names, failures = {}, {}
 	local r = {state=state, UIS=UIS, Client=Client, Constants=Constants, Tags=Tags, failures=failures, missions={}}
+	local previousCharacter, previousSlot, previousHealth
+	local hungerDamage, thirstDamage = false, false
+	function r.needsEmergency()
+		local c, slot = Client:GetCurrentCharacter(), Client:GetCurrentSlot()
+		local health = slot and slot:FindFirstChild("Health")
+		local food = slot and slot:FindFirstChild("Food")
+		local water = slot and slot:FindFirstChild("Water")
+		if c ~= previousCharacter or slot ~= previousSlot or not c or not health then
+			previousCharacter, previousSlot = c, slot
+			previousHealth = health and health.Value
+			hungerDamage, thirstDamage = false, false
+			return false
+		end
+		local emptyFood = not c.HasNoHunger and food and food.Value <= 0
+		local emptyWater = not c.HasNoThirst and water and water.Value <= 0
+		-- Heuristica autorizada: recurso zerado junto com queda de vida.
+		local lostHealth = previousHealth and health.Value > 0 and health.Value < previousHealth
+		hungerDamage = emptyFood and (hungerDamage or lostHealth) or false
+		thirstDamage = emptyWater and (thirstDamage or lostHealth) or false
+		previousHealth = health.Value
+		return hungerDamage or thirstDamage
+	end
 	local function stopHover() ctx.stopHover() end
 	local function status(message)
 		if message ~= state.status then
@@ -25,6 +47,7 @@ return function(ctx)
 				or (slot:FindFirstChild("Health") and slot.Health.Value <= 0) then
 			error("Personagem indisponivel. Entre com a criatura e inicie novamente.")
 		end
+		r.needsEmergency()
 		return true
 	end
 	local function pause(seconds)
