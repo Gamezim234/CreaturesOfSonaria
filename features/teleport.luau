@@ -1,9 +1,13 @@
--- Gerencia coordenadas salvas, camera e teleporte manual.
+-- Logica de coordenadas salvas, camera e teleporte (sem UI).
 return function(ctx)
-	local state, Rayfield, Tab = ctx.state, ctx.Rayfield, ctx.Tab
-	local LocalPlayer, UIS = ctx.player, ctx.UIS
+	local state = ctx.state
+	local LocalPlayer = ctx.player
+	local Camera = ctx.camera
 
-	local Camera, HEIGHT, Saved, Selected = ctx.camera, 6, {}, nil
+	local HEIGHT = 6
+	local Saved = {}
+	local Selected = nil
+
 	local function getHRP()
 		local char = LocalPlayer.Character
 		if not char then return nil end
@@ -30,7 +34,6 @@ return function(ctx)
 		hrp.AssemblyLinearVelocity = Vector3.zero
 		hrp.AssemblyAngularVelocity = Vector3.zero
 
-		-- restaura a câmera
 		if data.camCF then
 			Camera.CameraType = Enum.CameraType.Scriptable
 			Camera.CFrame = data.camCF
@@ -40,7 +43,7 @@ return function(ctx)
 		end
 	end
 
-	local function refreshNames()
+	local function listNames()
 		local names = {}
 		for name in pairs(Saved) do
 			table.insert(names, name)
@@ -50,97 +53,37 @@ return function(ctx)
 		return names
 	end
 
-	local SaveName = "Bioma1"
-
-	Tab:CreateInput({
-		Name = "Nome da coordenada",
-		PlaceholderText = "ex: Lago, Desert, Swamp",
-		CurrentValue = "Bioma1",
-		Callback = function(v)
-			SaveName = v
-		end
-	})
-
-	Tab:CreateButton({
-		Name = "Salvar pos + direção + câmera",
-		Callback = function()
+	return {
+		getRoot = getHRP,
+		getHeight = function() return HEIGHT end,
+		setHeight = function(v) HEIGHT = v end,
+		listNames = listNames,
+		save = function(name)
 			local hrp = getHRP()
-			if not hrp then
-				Rayfield:Notify({Title = "Erro", Content = "Personagem não encontrado", Duration = 3})
-				return
-			end
-			if not SaveName or SaveName == "" then
-				Rayfield:Notify({Title = "Erro", Content = "Coloca um nome", Duration = 3})
-				return
-			end
-
-			Saved[SaveName] = {
+			if not hrp then return false, "Personagem nao encontrado" end
+			if not name or name == "" then return false, "Coloca um nome" end
+			Saved[name] = {
 				pos = hrp.Position,
 				look = hrp.CFrame.LookVector,
-				camCF = Camera.CFrame
+				camCF = Camera.CFrame,
 			}
-			Selected = SaveName
-
-			Rayfield:Notify({
-				Title = "Salvo!",
-				Content = SaveName .. " (pos + dir + camera)",
-				Duration = 4
-			})
-			print("Salvo:", SaveName)
-		end
-	})
-
-	local Dropdown
-	Dropdown = Tab:CreateDropdown({
-		Name = "Selecionar coordenada",
-		Options = {"(nenhuma)"},
-		CurrentOption = {"(nenhuma)"},
-		Callback = function(opt)
-			local name = typeof(opt) == "table" and opt[1] or opt
+			Selected = name
+			return true, name
+		end,
+		select = function(name)
 			if name and name ~= "(nenhuma)" and Saved[name] then
 				Selected = name
+				return true
 			end
-		end
-	})
-
-	Tab:CreateButton({
-		Name = "Atualizar lista",
-		Callback = function()
-			Dropdown:Refresh(refreshNames())
-			Rayfield:Notify({Title = "Lista", Content = "Atualizada", Duration = 2})
-		end
-	})
-
-	Tab:CreateButton({
-		Name = "Teleportar para selecionada",
-		Callback = function()
+			return false
+		end,
+		getSelected = function() return Selected end,
+		teleportSelected = function()
 			if not Selected or not Saved[Selected] then
-				Rayfield:Notify({Title = "Erro", Content = "Nenhuma coord selecionada", Duration = 3})
-				return
+				return false, "Nenhuma coord selecionada"
 			end
 			safeTeleport(Saved[Selected])
-		end
-	})
-
-
-	return {
-		getRoot=getHRP,
-		selected=function()
-			if Selected and Saved[Selected] then safeTeleport(Saved[Selected])
-			else warn("Nenhuma coord selecionada") end
-		end,
-		addHeightSlider=function()
-			Tab:CreateSlider({
-				Name = "Altura acima do chão",
-				Range = {2, 15},
-				Increment = 1,
-				CurrentValue = 6,
-				Callback = function(v)
-					HEIGHT = v
-				end
-			})
-
-
+			return true
 		end,
 	}
 end

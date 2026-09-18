@@ -1,55 +1,58 @@
--- Monta os modulos, compartilha o estado e conecta os controles originais.
+-- Monta logica + UI unica e tecla F8 (desinjetar).
 return function(import)
-	local ctx=import("ui/window.luau")()
-	if not ctx then return end
-	ctx.import=import
-	ctx.state={enabled=true,running=false,busy=false,collecting=false,status="Parado"}
-	local state,Rayfield,Tab=ctx.state,ctx.Rayfield,ctx.Tab
-	local LocalPlayer,UIS=ctx.player,ctx.UIS
-	local conn
+	local Players = game:GetService("Players")
+	local UIS = game:GetService("UserInputService")
+	local LocalPlayer = Players.LocalPlayer
+	local Camera = workspace.CurrentCamera
+
+	local ctx = {
+		state = {
+			enabled = true,
+			running = false,
+			busy = false,
+			collecting = false,
+			status = "Parado",
+		},
+		player = LocalPlayer,
+		UIS = UIS,
+		camera = Camera,
+		import = import,
+	}
+
 	function ctx.stopHover()
-		if state.hover then state.hover:Disconnect(); state.hover=nil end
+		if ctx.state.hover then
+			ctx.state.hover:Disconnect()
+			ctx.state.hover = nil
+		end
 	end
-	ctx.farm={}
+
+	ctx.farm = {}
 	function ctx.farm.stop()
-		state.running=false
+		ctx.state.running = false
 		ctx.stopHover()
-		if state.heldKey then pcall(keyrelease,state.heldKey) end
-		state.heldKey=nil
+		if ctx.state.heldKey then pcall(keyrelease, ctx.state.heldKey) end
+		ctx.state.heldKey = nil
 	end
-	ctx.teleport=import("features/teleport.luau")(ctx)
-	import("features/shoompiles.luau")(ctx)
-	ctx.farm.run=import("autofarm/controller.luau")(ctx)
-	import("ui/autofarm-buttons.luau")(ctx)
-	import("features/servers.luau")(ctx)
-	ctx.teleport.addHeightSlider()
-	Tab:CreateButton({
-		Name = "DESINJETAR",
-		Callback = function()
-			ctx.farm.stop()
-			state.enabled = false
-			if conn then conn:Disconnect() end
-			pcall(function() Rayfield:Destroy() end)
-			print("Desinjetado")
-		end
-	})
 
-	conn = UIS.InputBegan:Connect(function(input, gpe)
-		if gpe or not state.enabled then return end
+	ctx.teleport = import("features/teleport.luau")(ctx)
+	ctx.shoom = import("features/shoompiles.luau")(ctx)
+	ctx.servers = import("features/servers.luau")(ctx)
+	ctx.farm.run = import("autofarm/controller.luau")(ctx)
 
-		if input.KeyCode == Enum.KeyCode.R then
-			ctx.teleport.selected()
-		end
+	local ui = import("ui/interface.luau")(ctx)
+	if not ui then return end
+	ctx.Rayfield = ui.Rayfield
 
+	ctx.inputConn = UIS.InputBegan:Connect(function(input, gpe)
+		if gpe or not ctx.state.enabled then return end
 		if input.KeyCode == Enum.KeyCode.F8 then
 			ctx.farm.stop()
-			state.enabled = false
-			if conn then conn:Disconnect() end
-			pcall(function() Rayfield:Destroy() end)
+			ctx.state.enabled = false
+			if ctx.inputConn then ctx.inputConn:Disconnect() end
+			pcall(function() ctx.Rayfield:Destroy() end)
 			print("Desinjetado")
 		end
 	end)
 
-	print("Biome TP | salva pos + direção + câmera | R = TP | F8 = sair")
-
+	print("CoS carregado | F8 = desinjetar")
 end
