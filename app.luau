@@ -7,7 +7,7 @@ return function(import)
 	local LocalPlayer = Players.LocalPlayer
 	local Camera = workspace.CurrentCamera
 
-	local ctx = {
+	local ctx: any = {
 		state = {
 			enabled = true,
 			running = false,
@@ -52,6 +52,7 @@ return function(import)
 	ctx.shoom = loadMod("features/shoompiles.luau")
 	ctx.servers = loadMod("features/servers.luau")
 	ctx.farm.run = loadMod("autofarm/controller.luau")
+	ctx.players = loadMod("features/players.luau")
 
 	-- UI unica (nao usa ui/window nem autofarm-buttons)
 	print("[CoS] carregando ui/interface.luau")
@@ -61,6 +62,7 @@ return function(import)
 	end
 	local ui = uiMod(ctx)
 	if not ui or not ui.Rayfield then
+		ctx.players.destroy()
 		error("UI nao inicializou (Rayfield nil). Veja warn de Falha ao carregar Rayfield.")
 	end
 	ctx.Rayfield = ui.Rayfield
@@ -72,6 +74,7 @@ return function(import)
 		if input.KeyCode == Enum.KeyCode.F8 then
 			ctx.farm.stop()
 			ctx.state.enabled = false
+			ctx.players.destroy()
 			if ctx.inputConn then
 				ctx.inputConn:Disconnect()
 			end

@@ -20,7 +20,7 @@ return function(ctx)
 		Theme = "Default",
 		ConfigurationSaving = { Enabled = false },
 		KeySystem = false,
-	end)
+	})
 
 	local TabTeleport = Window:CreateTab("Teleport", 4483362458)
 	local TabFarm = Window:CreateTab("Auto Farm", 4483362458)
@@ -36,6 +36,33 @@ return function(ctx)
 	local shoom = ctx.shoom
 	local servers = ctx.servers
 	local state = ctx.state
+	local players = ctx.players
+	local refreshing = false
+	local selectors = {}
+	local empty = "(selecione um jogador)"
+	local function playerSelector(tab, title, key)
+		local dropdown = tab:CreateDropdown({Name=title, Options=players.options(), CurrentOption={empty}, MultipleOptions=false,
+			Callback=function(value)
+				if not refreshing then players.select(key,value) end
+			end})
+		table.insert(selectors,{dropdown=dropdown,key=key})
+	end
+	playerSelector(TabFarm,"Alvo de ataque (obrigatorio)","attackTarget")
+	playerSelector(TabUtils,"Seguir - Jogador","followTarget")
+	TabUtils:CreateSlider({Name="Seguir - Distancia maxima", Range={5,300}, Increment=1, Suffix="studs", CurrentValue=15,
+		Callback=function(value) state.followDistance=math.clamp(value,5,300) end})
+	TabUtils:CreateToggle({Name="Seguir jogador", CurrentValue=false, Callback=function(value) state.following=value end})
+	local function refreshPlayers()
+		if not state.enabled then return end
+		refreshing = true
+		for _,item in ipairs(selectors) do
+			item.dropdown:Refresh(players.options(state[item.key.."Name"]))
+			item.dropdown:Set({state[item.key.."Name"] or empty})
+		end
+		refreshing = false
+	end
+	players.onRosterChanged = refreshPlayers
+	TabUtils:CreateButton({Name="Atualizar jogadores", Callback=refreshPlayers})
 
 	local SaveName = "Bioma1"
 	local Dropdown
@@ -107,6 +134,10 @@ return function(ctx)
 				return
 			end
 			if not state.enabled then return end
+			if not players.player(state.attackTarget) then
+				Rayfield:Notify({Title="Auto farm", Content="Selecione um jogador da sessao como alvo de ataque antes de iniciar.", Duration=5})
+				return
+			end
 			if state.collecting then
 				Rayfield:Notify({ Title = "Auto farm", Content = "Aguarde a coleta de ShoomPiles terminar.", Duration = 3 })
 				return
@@ -157,6 +188,7 @@ return function(ctx)
 		Callback = function()
 			ctx.farm.stop()
 			state.enabled = false
+			players.destroy()
 			if ctx.inputConn then ctx.inputConn:Disconnect() end
 			pcall(function() Rayfield:Destroy() end)
 			print("Desinjetado")

@@ -3,7 +3,7 @@ return function(ctx)
 	return function()
 		local r=ctx.import("autofarm/region.luau")(ctx)
 		local missions={}
-		for key,file in pairs({water="water",food="food",mud="mud",sniff="sniff",walk="walk",shoom="shoom_piles_mission"}) do
+		for key,file in pairs({water="water",food="food",mud="mud",sniff="sniff",walk="walk",shoom="shoom_piles_mission",attack="attack"}) do
 			local mission=ctx.import("autofarm/missions/"..file..".luau")(r)
 			missions[key]=mission
 			if mission.tag then r.missions[mission.tag]=mission end
@@ -57,6 +57,12 @@ return function(ctx)
 					local waitingNeeds=snapshot.waitingNeeds
 					local attempted=missions.water.run(name,snapshot)
 					attempted=missions.food.run(name,snapshot) or attempted
+					local waitingAttack=false
+					if not attempted and not r.needsEmergency() then
+						local attacked
+						attacked,waitingAttack=missions.attack.run(name)
+						attempted=attacked or attempted
+					end
 					if not attempted then
 						attempted=missions.shoom.run(name) or attempted
 						attempted=missions.mud.run(name) or attempted
@@ -64,9 +70,9 @@ return function(ctx)
 					missions.walk.run(name,snapshot,attempted)
 					if waitingNeeds then
 						status(name .. " | Aguardando fome/sede; demais missoes continuam")
-					elseif not attempted then status(name .. " | Aguardando intervalo ou recurso disponivel") end
+					elseif not attempted and not waitingAttack then status(name .. " | Aguardando intervalo ou recurso disponivel") end
 					-- Fome/sede podem demorar: nao tratar essa espera como falha.
-					if not waitingNeeds and os.clock() - lastProgress > 180 then
+					if not waitingNeeds and not waitingAttack and os.clock() - lastProgress > 180 then
 						status(name .. " | Sem progresso por 3 min; nova tentativa em 2 min")
 						retryAt[name] = os.clock() + 120
 						break
@@ -75,7 +81,7 @@ return function(ctx)
 				end
 				break
 			end
-			if not worked then status("Aguardando renovacao das missoes ou nova tentativa (ataque ignorado)") end
+			if not worked then status("Aguardando renovacao das missoes ou nova tentativa") end
 			pause(redirected and 0.1 or 5)
 		end
 	end
