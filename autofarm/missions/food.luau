@@ -51,6 +51,8 @@ return function(r)
 
 	end
 	function m.run(name,snapshot)
+		local amount,target=progress(name,m.kind)
+		if amount >= target then return false end
 		if snapshot.hunger then
 			for _,item in ipairs(r.sources(m.tag,name)) do
 				if foodCompatible(item,snapshot.character) then r.interact(name,m,item,8); return true end

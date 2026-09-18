@@ -55,6 +55,8 @@ return function(r)
 
 	end
 	function m.run(name,snapshot)
+		local amount,target=progress(name,m.kind)
+		if amount >= target then return false end
 		if snapshot.thirst then
 			for _, lake in ipairs(r.sources(m.tag,name)) do
 				if lake:GetAttribute("CanDrink") ~= false and not lake:GetAttribute("Sickly") and not lake:GetAttribute("IsPoisoned")
