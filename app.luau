@@ -1,5 +1,7 @@
 -- Monta logica + UI unica e tecla F8 (desinjetar).
 return function(import)
+	print("[CoS] app.luau iniciou")
+
 	local Players = game:GetService("Players")
 	local UIS = game:GetService("UserInputService")
 	local LocalPlayer = Players.LocalPlayer
@@ -30,29 +32,55 @@ return function(import)
 	function ctx.farm.stop()
 		ctx.state.running = false
 		ctx.stopHover()
-		if ctx.state.heldKey then pcall(keyrelease, ctx.state.heldKey) end
+		if ctx.state.heldKey then
+			pcall(keyrelease, ctx.state.heldKey)
+		end
 		ctx.state.heldKey = nil
 	end
 
-	ctx.teleport = import("features/teleport.luau")(ctx)
-	ctx.shoom = import("features/shoompiles.luau")(ctx)
-	ctx.servers = import("features/servers.luau")(ctx)
-	ctx.farm.run = import("autofarm/controller.luau")(ctx)
+	local function loadMod(path)
+		print("[CoS] import", path)
+		local mod = import(path)
+		if type(mod) ~= "function" then
+			error(path .. " nao retornou function")
+		end
+		return mod(ctx)
+	end
 
-	local ui = import("ui/interface.luau")(ctx)
-	if not ui then return end
+	-- logica (nao cria UI)
+	ctx.teleport = loadMod("features/teleport.luau")
+	ctx.shoom = loadMod("features/shoompiles.luau")
+	ctx.servers = loadMod("features/servers.luau")
+	ctx.farm.run = loadMod("autofarm/controller.luau")
+
+	-- UI unica (nao usa ui/window nem autofarm-buttons)
+	print("[CoS] carregando ui/interface.luau")
+	local uiMod = import("ui/interface.luau")
+	if type(uiMod) ~= "function" then
+		error("ui/interface.luau nao retornou function")
+	end
+	local ui = uiMod(ctx)
+	if not ui or not ui.Rayfield then
+		error("UI nao inicializou (Rayfield nil). Veja warn de Falha ao carregar Rayfield.")
+	end
 	ctx.Rayfield = ui.Rayfield
 
 	ctx.inputConn = UIS.InputBegan:Connect(function(input, gpe)
-		if gpe or not ctx.state.enabled then return end
+		if gpe or not ctx.state.enabled then
+			return
+		end
 		if input.KeyCode == Enum.KeyCode.F8 then
 			ctx.farm.stop()
 			ctx.state.enabled = false
-			if ctx.inputConn then ctx.inputConn:Disconnect() end
-			pcall(function() ctx.Rayfield:Destroy() end)
+			if ctx.inputConn then
+				ctx.inputConn:Disconnect()
+			end
+			pcall(function()
+				ctx.Rayfield:Destroy()
+			end)
 			print("Desinjetado")
 		end
 	end)
 
-	print("CoS carregado | F8 = desinjetar")
+	print("[CoS] UI pronta | F8 = desinjetar")
 end
