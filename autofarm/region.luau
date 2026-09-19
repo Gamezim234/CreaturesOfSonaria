@@ -10,6 +10,11 @@ return function(ctx)
 	local Tags = game:GetService("CollectionService")
 	local names, failures = {}, {}
 	local r = {state=state, UIS=UIS, Client=Client, Constants=Constants, Tags=Tags, failures=failures, missions={}}
+	r.actions=ctx.actions
+	local function cleanupActions()
+		r.actions.stopMovement()
+		r.actions.setSprint(false)
+	end
 	r.players, r.player = ctx.players, LocalPlayer
 	local previousCharacter, previousSlot, previousHealth
 	local hungerDamage, thirstDamage = false, false
@@ -36,16 +41,18 @@ return function(ctx)
 	local function stopHover() ctx.stopHover() end
 	local function status(message)
 		if message ~= state.status then
+			cleanupActions()
 			state.status = message
 			print("[Auto farm] " .. message)
 		end
 	end
 	local function active()
-		if not state.enabled or not state.running then return false end
+		if not state.enabled or not state.running then cleanupActions();return false end
 		local c = Client:GetCurrentCharacter()
 		local slot = Client:GetCurrentSlot()
 		if not c or not c.Root or not c.Root.Parent or not slot
 				or (slot:FindFirstChild("Health") and slot.Health.Value <= 0) then
+			cleanupActions()
 			error("Personagem indisponivel. Entre com a criatura e inicie novamente.")
 		end
 		r.needsEmergency()
@@ -60,10 +67,6 @@ return function(ctx)
 		return active()
 	end
 	local function focus()
-		while active() and (not isrbxactive() or UIS:GetFocusedTextBox()) do
-			status("Pausado: deixe o Roblox em foco e feche a caixa de texto")
-			task.wait(0.2)
-		end
 		return active()
 	end
 	local function press(key, seconds)
@@ -72,7 +75,7 @@ return function(ctx)
 		keypress(key)
 		local untilTime = os.clock() + seconds
 		repeat task.wait(0.1)
-		until not active() or not isrbxactive() or UIS:GetFocusedTextBox() or os.clock() >= untilTime
+		until not active() or os.clock() >= untilTime
 		keyrelease(key)
 		state.heldKey = nil
 		return active()
@@ -137,6 +140,7 @@ return function(ctx)
 	end
 
 	local function go(p, name, mode, object)
+		cleanupActions()
 		stopHover()
 		if not focus() then return false end
 		local c = Client:GetCurrentCharacter()
