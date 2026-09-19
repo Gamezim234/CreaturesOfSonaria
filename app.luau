@@ -31,6 +31,7 @@ return function(import)
 	ctx.farm = {}
 	function ctx.farm.stop()
 		ctx.state.running = false
+		if ctx.actions then ctx.actions.stopMovement();ctx.actions.setSprint(false) end
 		ctx.stopHover()
 		if ctx.state.heldKey then
 			pcall(keyrelease, ctx.state.heldKey)
@@ -48,6 +49,7 @@ return function(import)
 	end
 
 	-- logica (nao cria UI)
+	ctx.actions = loadMod("features/actions.luau")
 	ctx.teleport = loadMod("features/teleport.luau")
 	ctx.shoom = loadMod("features/shoompiles.luau")
 	ctx.servers = loadMod("features/servers.luau")

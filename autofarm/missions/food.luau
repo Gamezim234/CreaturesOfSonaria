@@ -40,7 +40,7 @@ return function(r)
 		keypress(0x45)
 		local deadline = os.clock() + duration
 		repeat task.wait(0.1)
-		until not active() or not isrbxactive() or UIS:GetFocusedTextBox()
+		until not active()
 			or (resource and resource.Value >= capacity - 0.1) or os.clock() >= deadline
 		keyrelease(0x45)
 		state.heldKey = nil

@@ -24,8 +24,7 @@ return function(r)
 	function m.afterMove(root,c)
 		local hoverFrame = root.CFrame
 		state.hover = game:GetService("RunService").Heartbeat:Connect(function()
-			if not state.enabled or not state.running or not root.Parent or not isrbxactive()
-					or UIS:GetFocusedTextBox() or Client:GetCurrentCharacter() ~= c then
+			if not state.enabled or not state.running or not root.Parent or Client:GetCurrentCharacter() ~= c then
 				stopHover(); return
 			end
 			root.CFrame = hoverFrame
@@ -44,7 +43,7 @@ return function(r)
 		keypress(0x45)
 		local deadline = os.clock() + duration
 		repeat task.wait(0.1)
-		until not active() or not isrbxactive() or UIS:GetFocusedTextBox()
+		until not active()
 			or (resource and resource.Value >= capacity - 0.1) or os.clock() >= deadline
 		keyrelease(0x45)
 		state.heldKey = nil
