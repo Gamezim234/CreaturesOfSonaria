@@ -1,4 +1,4 @@
--- Executa a missao da lama com apoio no solo e tecla E mantida.
+-- Executa a missao da lama com apoio no solo e a acao normal de rolagem.
 return function(r)
 	local state, UIS, Client = r.state, r.UIS, r.Client
 	local status, active, pause, focus = r.status, r.active, r.pause, r.focus
@@ -30,18 +30,14 @@ return function(r)
 			return false
 		end
 		if not pause(0.5) or not focus() then return false end
-		-- Segurar continuamente; nunca soltar entre quadros.
-		status(name .. " | Lama: segurando E ate concluir a rolagem")
-		state.heldKey = 0x45
-		keypress(0x45)
+		status(name .. " | Lama: aguardando concluir a rolagem")
+		if not r.actions.rollMud() then return false end
 		local holdDeadline = os.clock() + math.max(12, (Constants.MUD_ROLL_DURATION or 5) + 5)
 		repeat
 			task.wait(0.1)
-		until not active() or not isrbxactive() or UIS:GetFocusedTextBox()
+		until not active()
 			or progress(name, kind) > before or os.clock() >= holdDeadline
-		keyrelease(0x45)
-		state.heldKey = nil
-		-- Alguns estados so confirmam a rolagem depois de soltar E.
+		-- Preservar o intervalo de confirmacao do progresso da missao.
 		local confirmDeadline = os.clock() + 3
 		while active() and progress(name, kind) <= before and os.clock() < confirmDeadline do
 			if not pause(0.1) then break end
