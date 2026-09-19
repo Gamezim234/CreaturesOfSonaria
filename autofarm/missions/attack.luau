@@ -1,4 +1,4 @@
--- Usa cliques esquerdos no alvo selecionado somente durante a missao de ataque pendente.
+-- Usa o ataque normal no alvo selecionado somente durante a missao pendente.
 return function(r)
 	local m = {kind="AttackOrHealCreatureOrNPC", tag="AttackTarget"}
 	local function pending(name)
@@ -39,9 +39,8 @@ return function(r)
 				end
 			end
 		end
-		if not isrbxactive() or r.UIS:GetFocusedTextBox() then return false,true end
 		r.status(name .. " | Atacando " .. (r.state.attackTargetName or tostring(id)))
-		mouse1click()
+		if not r.actions.attack() then return false,true end
 		local cooldown=character.CharacterData:GetWithModifiers("BiteCooldown")
 		r.pause(math.max(type(cooldown)=="number" and cooldown or 1,0.5))
 		return true,false
