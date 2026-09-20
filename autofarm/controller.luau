@@ -22,60 +22,68 @@ return function(ctx)
 			return result
 		end
 
-		local function emergencyRegion(current)
-			if not r.needsEmergency() then return nil end
-			local amount,target=progress(current,missions.food.kind)
-			if amount < target then return nil end
-
-			local candidates={}
-			for _,name in ipairs(names) do
-				amount,target=progress(name,missions.food.kind)
-				if name ~= current and amount < target then table.insert(candidates,name) end
-			end
-			table.sort(candidates)
-			return candidates[1]
-		end
-
 		local function refreshGroup(current)
-			local emergency=emergencyRegion(current)
-			sync.update(pendingMap(),current,emergency)
+			-- Fome/sede nunca mudam o bioma do grupo. Sao resolvidas localmente.
+			sync.update(pendingMap(),current,nil)
 			local target,members=sync.chooseBiome()
 			sync.setTarget(target)
 			state.groupMembers=members
 			state.groupTarget=target
-			return target,members,emergency
+			return target,members
 		end
 
 		local function groupLabel(members)
 			local count=#members
-			return tostring(count) .. (count==1 and " conta" or " contas")
+			return tostring(count)..(count==1 and " conta" or " contas")
+		end
+
+		local function prepareNeeds(name)
+			local snapshot:any={
+				character=Client:GetCurrentCharacter(),
+				slot=Client:GetCurrentSlot(),
+			}
+			snapshot.amount,snapshot.target=progress(name,missions.food.kind)
+			missions.water.prepare(snapshot)
+			missions.food.prepare(name,snapshot)
+			return snapshot
+		end
+
+		local function runNeeds(name,snapshot)
+			local attempted=missions.water.run(name,snapshot)
+			attempted=missions.food.run(name,snapshot) or attempted
+			return attempted
 		end
 
 		do
 			local current=r.regionAt(Client:GetCurrentCharacter().Root.Position)
-			sync.update(pendingMap(),current,emergencyRegion(current))
+			sync.update(pendingMap(),current,nil)
 			status("Sincronizando autofarm em grupo...")
 			pause(1)
 		end
 
 		while active() do
 			local current=r.regionAt(Client:GetCurrentCharacter().Root.Position)
-			local target,members,emergency=refreshGroup(current)
+			local target,members=refreshGroup(current)
 
 			if not target then
-				status("Grupo sem missoes pendentes | " .. groupLabel(members))
-				pause(5)
+				-- Mesmo sem missoes, a criatura ainda precisa sobreviver.
+				local snapshot=prepareNeeds(current)
+				if snapshot.critical then
+					if not runNeeds(current,snapshot) then
+						status(current.." | Necessidade critica: sem comida/agua utilizavel neste bioma")
+						pause(0.5)
+					end
+				else
+					status("Grupo sem missoes pendentes | "..groupLabel(members))
+					pause(5)
+				end
 				continue
 			end
 
-			if current ~= target then
-				if emergency then
-					status("Emergencia do grupo: indo para " .. target .. " | " .. groupLabel(members))
-				else
-					status("Grupo indo para " .. target .. " | " .. groupLabel(members))
-				end
+			if current~=target then
+				status("Grupo indo para "..target.." | "..groupLabel(members))
 				if not r.enter(target) then
-					status(target .. " | Falha ao entrar; grupo tentara novamente")
+					status(target.." | Falha ao entrar; grupo tentara novamente")
 					pause(5)
 					continue
 				end
@@ -89,20 +97,33 @@ return function(ctx)
 			while active() do
 				current=r.regionAt(Client:GetCurrentCharacter().Root.Position)
 				local groupTarget,currentMembers=refreshGroup(current)
-				if groupTarget ~= target then break end
+				if groupTarget~=target then break end
 
-				if current ~= target then
-					status("Voltando ao bioma do grupo: " .. target)
+				if current~=target then
+					status("Voltando ao bioma do grupo: "..target)
 					break
 				end
 
-				if not pending(target) then
-					status(target .. " | Minhas missoes prontas; aguardando grupo | " .. groupLabel(currentMembers))
-					pause(1)
+				if not focus() then break end
+
+				local snapshot=prepareNeeds(target)
+				local attempted=runNeeds(target,snapshot)
+
+				-- Abaixo de 10% comida/agua tem prioridade absoluta, mas a conta
+				-- continua no mesmo bioma do grupo.
+				if snapshot.critical then
+					if not attempted then
+						status(target.." | Necessidade critica: procurando comida/agua no bioma atual")
+					end
+					pause(0.5)
 					continue
 				end
 
-				if not focus() then break end
+				if not pending(target) then
+					status(target.." | Minhas missoes prontas; aguardando grupo | "..groupLabel(currentMembers))
+					pause(1)
+					continue
+				end
 
 				local signature={}
 				for _,kind in ipairs(kinds) do
@@ -110,22 +131,18 @@ return function(ctx)
 					table.insert(signature,tostring(a).."/"..tostring(b))
 				end
 				local sig=table.concat(signature,",")
-				if sig ~= lastSignature then
+				if sig~=lastSignature then
 					lastProgress=os.clock()
 					lastSignature=sig
 				end
 
-				local snapshot:any={character=Client:GetCurrentCharacter(),slot=Client:GetCurrentSlot()}
-				if not r.needsEmergency() then missions.sniff.run(target) end
-				snapshot.amount,snapshot.target=progress(target,missions.food.kind)
-				missions.water.prepare(snapshot)
-				missions.food.prepare(target,snapshot)
-				local waitingNeeds=snapshot.waitingNeeds
-				local attempted=missions.water.run(target,snapshot)
-				attempted=missions.food.run(target,snapshot) or attempted
+				if not attempted then
+					missions.sniff.run(target)
+				end
 
+				local waitingNeeds=snapshot.waitingNeeds
 				local waitingAttack=false
-				if not attempted and not r.needsEmergency() then
+				if not attempted then
 					local attacked
 					attacked,waitingAttack=missions.attack.run(target)
 					attempted=attacked or attempted
@@ -139,13 +156,13 @@ return function(ctx)
 				missions.walk.run(target,snapshot,attempted)
 
 				if waitingNeeds then
-					status(target .. " | Aguardando fome/sede; demais missoes continuam")
+					status(target.." | Aguardando fome/sede cair; demais missoes continuam")
 				elseif not attempted and not waitingAttack then
-					status(target .. " | Aguardando intervalo ou recurso disponivel")
+					status(target.." | Aguardando intervalo ou recurso disponivel")
 				end
 
 				if not waitingNeeds and not waitingAttack and os.clock()-lastProgress>180 then
-					status(target .. " | Sem progresso por 3 min; permanecendo com o grupo")
+					status(target.." | Sem progresso por 3 min; permanecendo com o grupo")
 					lastProgress=os.clock()
 					pause(5)
 				else
