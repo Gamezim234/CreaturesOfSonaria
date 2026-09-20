@@ -38,7 +38,7 @@ return function(r)
 
 	local function grownEnough(member)
 		local age=member.age
-		if type(age)~="number" then return true end
+		if type(age)~="number" then return false end
 		if age>=0 and age<=1 then return age>=0.33 end
 		return age>=MIN_TARGET_AGE
 	end
@@ -47,7 +47,8 @@ return function(r)
 		if type(member)~="table" or member.userId==r.player.UserId then return false end
 		if member.alive~=true or member.recovering==true then return false end
 		if type(member.lifeId)~="string" or not vec3(member.position) then return false end
-		if type(member.healthPct)=="number" and member.healthPct<SAFE_TARGET_HEALTH then return false end
+		if type(member.health)~="number" or type(member.maxHealth)~="number" or type(member.healthPct)~="number" then return false end
+		if member.health<=0 or member.maxHealth<=0 or member.healthPct<SAFE_TARGET_HEALTH then return false end
 		if not grownEnough(member) then return false end
 		if hasRecoveryAilment(member) then return false end
 		return true
@@ -62,11 +63,14 @@ return function(r)
 
 	local function ownSafe()
 		local member=ownMember()
-		if member then
-			if member.alive~=true or member.recovering==true then return false end
-			if type(member.healthPct)=="number" and member.healthPct<SAFE_SELF_HEALTH then return false end
-			if hasRecoveryAilment(member) then return false end
-		end
+		if not member then return false end
+		if member.alive~=true or member.recovering==true then return false end
+		if type(member.lifeId)~="string" or type(member.health)~="number"
+			or type(member.maxHealth)~="number" or type(member.healthPct)~="number"
+			or type(member.damage)~="number" then return false end
+		if member.health<=0 or member.maxHealth<=0 or member.damage<=0 then return false end
+		if member.healthPct<SAFE_SELF_HEALTH then return false end
+		if hasRecoveryAilment(member) then return false end
 		return not r.state.survivalBusy and not r.state.recovering
 	end
 
@@ -85,7 +89,8 @@ return function(r)
 
 	local function damageLooksSafe(target)
 		local own=ownMember()
-		if not own or type(own.damage)~="number" or type(target.health)~="number" then return true end
+		if not own or type(own.damage)~="number" or own.damage<=0 then return false end
+		if type(target.health)~="number" or target.health<=0 then return false end
 		return own.damage<=target.health*0.15
 	end
 
@@ -112,7 +117,16 @@ return function(r)
 			if not p or r.regionAt(p)~=name then return end
 			local distance=ownRoot and (p-ownRoot.Position).Magnitude or math.huge
 			if not bestDistance or distance<bestDistance then
-				best={id=member.userId,name=member.name,position=p,sizeZ=sizeZ(member),lifeId=member.lifeId,healthPct=member.healthPct}
+				best={
+					id=member.userId,
+					name=member.name,
+					position=p,
+					sizeZ=sizeZ(member),
+					lifeId=member.lifeId,
+					health=member.health,
+					maxHealth=member.maxHealth,
+					healthPct=member.healthPct,
+				}
 				bestDistance=distance
 			end
 		end
@@ -129,7 +143,7 @@ return function(r)
 	function m.run(name)
 		if not pending(name) then return false,false end
 		if not ownSafe() then
-			r.status(name.." | Ataque pausado: esta conta precisa recuperar")
+			r.status(name.." | Ataque pausado: sync/vida/dano ainda nao estao seguros")
 			return false,true
 		end
 		if not myTurn(name) then
@@ -139,7 +153,7 @@ return function(r)
 
 		local target=chooseTarget(name)
 		if not target then
-			r.status(name.." | Ataque: aguardando alvo adulto/saudavel no grupo")
+			r.status(name.." | Ataque: aguardando alvo adulto/saudavel com sync completo")
 			return false,true
 		end
 
@@ -151,6 +165,10 @@ return function(r)
 		local character=r.Client:GetCurrentCharacter()
 		if not refreshed or not character or refreshed.id~=target.id or refreshed.lifeId~=target.lifeId then
 			r.status(name.." | Ataque cancelado: alvo mudou/respawnou")
+			return false,true
+		end
+		if not damageLooksSafe(refreshed) then
+			r.status(name.." | Ataque cancelado: mordida deixou de ser segura")
 			return false,true
 		end
 
