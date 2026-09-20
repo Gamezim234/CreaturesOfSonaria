@@ -96,7 +96,7 @@ return function(ctx)
 		if not amount or not target then return 0, 0 end
 		return amount.Value, target.Value
 	end
-	local kinds = {"ShoomPilesCollected", "Sniff", "ConcealScent", "EatFoodDrinkWater", "DistanceTravelled", "TimePlayed", "AttackOrHealCreatureOrNPC"}
+	local kinds = {"Sniff", "ConcealScent", "EatFoodDrinkWater", "DistanceTravelled", "TimePlayed", "AttackOrHealCreatureOrNPC"}
 	local function pending(name)
 		for _, kind in ipairs(kinds) do
 			local a, b = progress(name, kind)
