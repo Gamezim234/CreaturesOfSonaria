@@ -1,9 +1,9 @@
--- Agenda as regioes, sobrevivencia e sincronizacao do grupo.
+-- Agenda as regioes e mantem todas as contas locais sincronizadas no mesmo bioma.
 return function(ctx)
 	return function()
 		local r=ctx.import("autofarm/region.luau")(ctx)
 		local missions={}
-		for key,file in pairs({water="water",food="food",mud="mud",sniff="sniff",walk="walk",shoom="shoom_piles_mission",attack="attack"}) do
+		for key,file in pairs({water="water",food="food",mud="mud",sniff="sniff",walk="walk",attack="attack"}) do
 			local mission=ctx.import("autofarm/missions/"..file..".luau")(r)
 			missions[key]=mission
 			if mission.tag then r.missions[mission.tag]=mission end
@@ -17,7 +17,9 @@ return function(ctx)
 
 		local function pendingMap()
 			local result={}
-			for _,name in ipairs(names) do result[name]=pending(name) end
+			for _,name in ipairs(names) do
+				result[name]=pending(name)
+			end
 			return result
 		end
 
@@ -31,8 +33,11 @@ return function(ctx)
 		end
 
 		local function refreshGroup(current)
+			-- ShoomPiles nao participa do autofarm.
+			-- O alvo atual fica travado ate TODAS as contas terminarem as 6 missoes normais dele.
 			sync.update(pendingMap(),current,nil,attackPendingMap())
-			local target,members=sync.chooseBiome()
+			local preferred=state.groupTarget or current
+			local target,members=sync.chooseBiome(preferred)
 			sync.setTarget(target)
 			state.groupMembers=members
 			state.groupTarget=target
@@ -45,7 +50,10 @@ return function(ctx)
 		end
 
 		local function prepareNeeds(name)
-			local snapshot:any={character=Client:GetCurrentCharacter(),slot=Client:GetCurrentSlot()}
+			local snapshot:any={
+				character=Client:GetCurrentCharacter(),
+				slot=Client:GetCurrentSlot(),
+			}
 			snapshot.amount,snapshot.target=progress(name,missions.food.kind)
 			missions.water.prepare(snapshot)
 			missions.food.prepare(name,snapshot)
@@ -76,6 +84,7 @@ return function(ctx)
 			local target,members=refreshGroup(current)
 
 			if not target then
+				-- Mesmo sem missoes, a criatura ainda precisa sobreviver.
 				local snapshot=prepareNeeds(current)
 				if snapshot.critical then
 					if not runNeeds(current,snapshot) then
@@ -116,16 +125,23 @@ return function(ctx)
 				current=r.regionAt(Client:GetCurrentCharacter().Root.Position)
 				local groupTarget,currentMembers=refreshGroup(current)
 				if groupTarget~=target then break end
+
 				if current~=target then
 					status("Voltando ao bioma do grupo: "..target)
 					break
 				end
+
 				if not focus() then break end
 
 				local snapshot=prepareNeeds(target)
 				local attempted=runNeeds(target,snapshot)
+
+				-- Abaixo de 10% comida/agua tem prioridade absoluta, mas a conta
+				-- continua no mesmo bioma do grupo.
 				if snapshot.critical then
-					if not attempted then status(target.." | Necessidade critica: procurando comida/agua no bioma atual") end
+					if not attempted then
+						status(target.." | Necessidade critica: procurando comida/agua no bioma atual")
+					end
 					pause(0.5)
 					continue
 				end
@@ -142,9 +158,15 @@ return function(ctx)
 					table.insert(signature,tostring(a).."/"..tostring(b))
 				end
 				local sig=table.concat(signature,",")
-				if sig~=lastSignature then lastProgress=os.clock();lastSignature=sig end
+				if sig~=lastSignature then
+					lastProgress=os.clock()
+					lastSignature=sig
+				end
 
-				if not attempted then missions.sniff.run(target) end
+				if not attempted then
+					missions.sniff.run(target)
+				end
+
 				local waitingNeeds=snapshot.waitingNeeds
 				local waitingAttack=false
 				if not attempted then
@@ -152,8 +174,8 @@ return function(ctx)
 					attacked,waitingAttack=missions.attack.run(target)
 					attempted=attacked or attempted
 				end
+
 				if not attempted then
-					attempted=missions.shoom.run(target) or attempted
 					attempted=missions.mud.run(target) or attempted
 				end
 
