@@ -66,6 +66,7 @@ return function(r)
 
 		actions.stopEatDrink()
 		stopHover()
+		r.ensureLand(name)
 		pause(0.5)
 		return nil
 	end
