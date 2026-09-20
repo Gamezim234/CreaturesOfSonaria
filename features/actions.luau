@@ -11,7 +11,7 @@ return function()
 	local function module(name)
 		local storage=game:GetService("ReplicatedStorage")
 		local folder=name=="Sonar" and storage or storage:FindFirstChild("_replicationFolder")
-		local object=folder and folder:FindFirstChild(name) :: any
+		local object=folder and folder:FindFirstChild(name)
 		return object and require(object)
 	end
 
@@ -66,19 +66,68 @@ return function()
 		end)
 	end
 
+	function Actions.setResting(enabled)
+		return safe(function()
+			local character=getCharacter()
+			if not character then return false end
+			for _,name in ipairs({"SetResting","SetRest","SetLaying"}) do
+				if type(character[name])=="function" then
+					character[name](character,enabled)
+					return true
+				end
+			end
+			local names=enabled
+				and {"Rest","LayDown","LieDown","StartRest","StartLaying"}
+				or {"Stand","StopRest","StopResting","StopLaying"}
+			for _,name in ipairs(names) do
+				if type(character[name])=="function" then
+					character[name](character)
+					return true
+				end
+			end
+			return false
+		end)
+	end
+
+	function Actions.restartSlot(slotName)
+		return safe(function()
+			if type(slotName)~="string" or slotName=="" then return false end
+			local storage=game:GetService("ReplicatedStorage")
+			local remotes=storage:FindFirstChild("Remotes")
+			local restart=remotes and remotes:FindFirstChild("RestartSlotRemote")
+			local replication=storage:FindFirstChild("_replicationFolder")
+			local selectionModule=replication and replication:FindFirstChild("SaveSelectionClient")
+			if not restart or not selectionModule then return false end
+			pcall(function()
+				local claim=remotes:FindFirstChild("ClaimDeathRewardsRemote")
+				if claim then claim:InvokeServer() end
+			end)
+			pcall(function()
+				local deathModule=replication:FindFirstChild("DeathClient")
+				if deathModule then
+					local DeathClient=require(deathModule)
+					if type(DeathClient.Close)=="function" then DeathClient.Close() end
+				end
+			end)
+			restart:InvokeServer(slotName,false)
+			task.wait(0.75)
+			local SaveSelectionClient=require(selectionModule)
+			if type(SaveSelectionClient.Respawn)~="function" then return false end
+			SaveSelectionClient.Respawn(slotName)
+			return true
+		end)
+	end
+
 	local function actionFromMenu(menu,hint)
 		if type(menu)~="table" or type(menu.Actions)~="table" then return nil end
 		for _,action in ipairs(menu.Actions) do
-			if type(action)=="table" and action.Hint==hint and type(action.Run)=="function" then
-				return action
-			end
+			if type(action)=="table" and action.Hint==hint and type(action.Run)=="function" then return action end
 		end
 		return nil
 	end
 
 	local function findObjectAction(object,hint)
 		if type(filtergc)~="function" or typeof(object)~="Instance" then return nil end
-
 		local candidates={object}
 		if object:IsA("Model") then
 			if object.PrimaryPart then table.insert(candidates,object.PrimaryPart) end
@@ -87,15 +136,10 @@ return function()
 			local part=object:FindFirstChildWhichIsA("BasePart",true)
 			if part then table.insert(candidates,part) end
 		end
-
 		for _,candidate in ipairs(candidates) do
-			local direct=filtergc("table",{
-				Keys={"Actions","Object"},
-				Values={candidate},
-			},true)
+			local direct=filtergc("table",{Keys={"Actions","Object"},Values={candidate}},true)
 			local action=actionFromMenu(direct,hint)
 			if action then return action end
-
 			local matches=filtergc("table",{Values={candidate}},false)
 			if type(matches)=="table" then
 				for _,wrapper in ipairs(matches) do
@@ -106,7 +150,6 @@ return function()
 				end
 			end
 		end
-
 		return nil
 	end
 
@@ -124,13 +167,8 @@ return function()
 		end)
 	end
 
-	function Actions.collectShoomPile(object)
-		return runObjectAction(object,"Collect")
-	end
-
-	function Actions.hideScent(object)
-		return runObjectAction(object,"Hide Scent")
-	end
+	function Actions.collectShoomPile(object) return runObjectAction(object,"Collect") end
+	function Actions.hideScent(object) return runObjectAction(object,"Hide Scent") end
 
 	local function findFoodAction(object)
 		local Food=module("Food")
@@ -144,18 +182,10 @@ return function()
 
 	local function findDrinkAction()
 		if type(filtergc)~="function" then return nil end
-		local run=filtergc("function",{
-			Constants={"StartDrink"},
-			IgnoreExecutor=true,
-		},true)
+		local run=filtergc("function",{Constants={"StartDrink"},IgnoreExecutor=true},true)
 		if type(run)~="function" then return nil end
-		local action=filtergc("table",{
-			Keys={"Run","End","InteractMenu"},
-			Values={run},
-		},true)
-		if type(action)=="table" and type(action.Run)=="function" and type(action.End)=="function" then
-			return action
-		end
+		local action=filtergc("table",{Keys={"Run","End","InteractMenu"},Values={run}},true)
+		if type(action)=="table" and type(action.Run)=="function" and type(action.End)=="function" then return action end
 		return nil
 	end
 
@@ -182,9 +212,7 @@ return function()
 		end)
 	end
 
-	function Actions.stopEatDrink()
-		return characterAction("StopEatDrink")
-	end
+	function Actions.stopEatDrink() return characterAction("StopEatDrink") end
 
 	local function movement(controller,x,z)
 		controller.leftValue=math.min(x,0)
@@ -217,9 +245,7 @@ return function()
 		end)
 	end
 
-	function Actions.moveForward()
-		return Actions.setMovement(0,-1)
-	end
+	function Actions.moveForward() return Actions.setMovement(0,-1) end
 
 	function Actions.stopMovement()
 		local previous=lastController
