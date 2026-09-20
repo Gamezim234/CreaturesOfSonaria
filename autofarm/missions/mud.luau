@@ -8,10 +8,9 @@ return function(r)
 
 	function m.perform(name,object,duration,before,resource)
 		local kind=m.kind
-
-		-- A acao Hide Scent so deve ser disparada quando a criatura esta realmente apoiada na lama.
 		local ready=false
 		local deadline=os.clock()+8
+
 		while active() and os.clock()<deadline do
 			local character=Client:GetCurrentCharacter()
 			local params=RaycastParams.new()
@@ -22,8 +21,7 @@ return function(r)
 				Vector3.new(0,-200,0),
 				params
 			)
-			if character.IsGrounded and hit
-				and (hit.Instance==object or hit.Instance:IsDescendantOf(object)) then
+			if character.IsGrounded and hit and hit.Instance==object then
 				ready=true
 				break
 			end
@@ -36,18 +34,16 @@ return function(r)
 			return false
 		end
 
-		if not pause(0.5) or not focus() then return false end
+		if not pause(0.3) or not focus() then return false end
 		status(name.." | Lama: executando Hide Scent")
 
-		-- Roll("Mud") sozinho anima a rolagem, mas nao executa toda a
-		-- acao que o jogo usa para confirmar ConcealScent no servidor.
 		if not r.actions.hideScent(object) then
 			status(name.." | Lama: acao Hide Scent nao encontrada")
 			failures[object]=os.clock()+15
 			return false
 		end
 
-		local confirmDeadline=os.clock()+4
+		local confirmDeadline=os.clock()+math.max(8,(Constants.MUD_ROLL_DURATION or 5)+3)
 		while active() and progress(name,kind)<=before and os.clock()<confirmDeadline do
 			if not pause(0.1) then break end
 		end

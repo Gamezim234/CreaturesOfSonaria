@@ -1,30 +1,36 @@
 -- Executa as acoes confirmadas do jogo com referencias atuais e falha segura.
 return function()
-	local Actions = {}
+	local Actions={}
 	local lastController
+
 	local function safe(callback)
 		local ok,result=pcall(callback)
 		return ok and result==true
 	end
+
 	local function module(name)
 		local storage=game:GetService("ReplicatedStorage")
 		local folder=name=="Sonar" and storage or storage:FindFirstChild("_replicationFolder")
 		local object=folder and folder:FindFirstChild(name) :: any
 		return object and require(object)
 	end
+
 	local function getClient()
 		local wrapper=module("PlayerWrapper")
 		return wrapper and wrapper.GetClient()
 	end
+
 	local function getCharacter()
 		local client=getClient()
 		return client and client.CurrentCharacter
 	end
+
 	local function getController()
 		local client=getClient()
 		local controls=client and client.PlayerControls
 		return controls and controls.activeController
 	end
+
 	local function characterAction(name,...)
 		local args=table.pack(...)
 		return safe(function()
@@ -34,9 +40,11 @@ return function()
 			return true
 		end)
 	end
+
 	function Actions.attack() return characterAction("Attack") end
 	function Actions.jump() return characterAction("Jump") end
 	function Actions.rollMud() return characterAction("Roll","Mud") end
+
 	function Actions.sniff()
 		return safe(function()
 			if not getCharacter() then return false end
@@ -47,6 +55,7 @@ return function()
 			return true
 		end)
 	end
+
 	function Actions.setSprint(enabled)
 		return safe(function()
 			if enabled and not getCharacter() then return false end
@@ -55,6 +64,16 @@ return function()
 			if enabled then service:Sprint() else service:StopSprinting() end
 			return true
 		end)
+	end
+
+	local function actionFromMenu(menu,hint)
+		if type(menu)~="table" or type(menu.Actions)~="table" then return nil end
+		for _,action in ipairs(menu.Actions) do
+			if type(action)=="table" and action.Hint==hint and type(action.Run)=="function" then
+				return action
+			end
+		end
+		return nil
 	end
 
 	local function findObjectAction(object,hint)
@@ -70,16 +89,19 @@ return function()
 		end
 
 		for _,candidate in ipairs(candidates) do
-			local menu=filtergc("table",{
+			local direct=filtergc("table",{
 				Keys={"Actions","Object"},
 				Values={candidate},
 			},true)
-			if type(menu)=="table" and type(menu.Actions)=="table" then
-				for _,action in ipairs(menu.Actions) do
-					if type(action)=="table"
-						and action.Hint==hint
-						and type(action.Run)=="function" then
-						return action
+			local action=actionFromMenu(direct,hint)
+			if action then return action end
+
+			local matches=filtergc("table",{Values={candidate}},false)
+			if type(matches)=="table" then
+				for _,wrapper in ipairs(matches) do
+					if type(wrapper)=="table" then
+						action=actionFromMenu(rawget(wrapper,"ProximityMenu"),hint)
+						if action then return action end
 					end
 				end
 			end
@@ -115,16 +137,8 @@ return function()
 		if not Food or type(Food.GetFoodFromModel)~="function" then return nil end
 		local food=Food.GetFoodFromModel(object)
 		local menu=food and food.ProximityMenu
-		local actions=menu and menu.Actions
-		if type(actions)~="table" then return nil end
-		for _,action in ipairs(actions) do
-			if type(action)=="table"
-				and action.Hint=="Eat"
-				and type(action.Run)=="function"
-				and type(action.End)=="function" then
-				return action
-			end
-		end
+		local action=actionFromMenu(menu,"Eat")
+		if action and type(action.End)=="function" then return action end
 		return nil
 	end
 
@@ -179,6 +193,7 @@ return function()
 		controller.backwardValue=math.max(z,0)
 		controller:UpdateMovement(nil)
 	end
+
 	function Actions.setMovement(x,z)
 		return safe(function()
 			x,z=x or 0,z or 0
@@ -201,12 +216,17 @@ return function()
 			return true
 		end)
 	end
-	function Actions.moveForward() return Actions.setMovement(0,-1) end
+
+	function Actions.moveForward()
+		return Actions.setMovement(0,-1)
+	end
+
 	function Actions.stopMovement()
 		local previous=lastController
 		lastController=nil
 		if previous then pcall(movement,previous,0,0) end
 		return Actions.setMovement(0,0)
 	end
+
 	return Actions
 end
