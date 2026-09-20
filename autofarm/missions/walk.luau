@@ -56,7 +56,7 @@ return function(r)
 				if stagnant>=8 then break end
 			end
 		end
-		return lastProgress>a
+		return lastProgress>0
 	end
 
 	return m
