@@ -31,7 +31,11 @@ return function(import)
 	ctx.farm = {}
 	function ctx.farm.stop()
 		ctx.state.running = false
-		if ctx.actions then ctx.actions.stopMovement();ctx.actions.setSprint(false) end
+		if ctx.actions then
+			ctx.actions.stopMovement()
+			ctx.actions.setSprint(false)
+			ctx.actions.stopEatDrink()
+		end
 		ctx.stopHover()
 		if ctx.state.heldKey then
 			pcall(keyrelease, ctx.state.heldKey)
