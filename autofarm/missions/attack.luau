@@ -5,7 +5,7 @@ return function(r)
 	local SAFE_SELF_HEALTH=0.90
 	local MIN_TARGET_AGE=33
 
-	local recoveryWords={"bleed","injur","fract","broken","ligament","poison","necro","burn","erosion","radiat","frost","hypother","disease","wound","shock"}
+	local recoveryWords={"bleed","injur","fract","broken","ligament","poison","necro","burn","erosion","radiat","frost","hypother","disease","wound","shock","spawnimmun"}
 
 	local function pending(name)
 		local amount,target=r.progress(name,m.kind)
