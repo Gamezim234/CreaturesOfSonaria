@@ -1,4 +1,4 @@
--- Agenda as regioes e mantem todas as contas locais sincronizadas no mesmo bioma.
+-- Agenda as regioes, sobrevivencia e sincronizacao do grupo.
 return function(ctx)
 	return function()
 		local r=ctx.import("autofarm/region.luau")(ctx)
@@ -12,19 +12,26 @@ return function(ctx)
 		local active,pending,status,focus,pause,progress=r.active,r.pending,r.status,r.focus,r.pause,r.progress
 		local names,kinds,Client=r.names,r.kinds,r.Client
 		local sync=ctx.groupSync
+		local survival=ctx.survival
 		local state=r.state
 
 		local function pendingMap()
 			local result={}
+			for _,name in ipairs(names) do result[name]=pending(name) end
+			return result
+		end
+
+		local function attackPendingMap()
+			local result={}
 			for _,name in ipairs(names) do
-				result[name]=pending(name)
+				local amount,target=progress(name,missions.attack.kind)
+				result[name]=target>0 and amount<target
 			end
 			return result
 		end
 
 		local function refreshGroup(current)
-			-- Fome/sede nunca mudam o bioma do grupo. Sao resolvidas localmente.
-			sync.update(pendingMap(),current,nil)
+			sync.update(pendingMap(),current,nil,attackPendingMap())
 			local target,members=sync.chooseBiome()
 			sync.setTarget(target)
 			state.groupMembers=members
@@ -38,10 +45,7 @@ return function(ctx)
 		end
 
 		local function prepareNeeds(name)
-			local snapshot:any={
-				character=Client:GetCurrentCharacter(),
-				slot=Client:GetCurrentSlot(),
-			}
+			local snapshot:any={character=Client:GetCurrentCharacter(),slot=Client:GetCurrentSlot()}
 			snapshot.amount,snapshot.target=progress(name,missions.food.kind)
 			missions.water.prepare(snapshot)
 			missions.food.prepare(name,snapshot)
@@ -54,19 +58,24 @@ return function(ctx)
 			return attempted
 		end
 
+		if not survival.ensureReady() then return end
 		do
 			local current=r.regionAt(Client:GetCurrentCharacter().Root.Position)
-			sync.update(pendingMap(),current,nil)
+			sync.update(pendingMap(),current,nil,attackPendingMap())
 			status("Sincronizando autofarm em grupo...")
 			pause(1)
 		end
 
 		while active() do
+			if survival.handle() then
+				pause(0.2)
+				continue
+			end
+
 			local current=r.regionAt(Client:GetCurrentCharacter().Root.Position)
 			local target,members=refreshGroup(current)
 
 			if not target then
-				-- Mesmo sem missoes, a criatura ainda precisa sobreviver.
 				local snapshot=prepareNeeds(current)
 				if snapshot.critical then
 					if not runNeeds(current,snapshot) then
@@ -95,26 +104,28 @@ return function(ctx)
 			local lastSignature=""
 
 			while active() do
+				if survival.handle() then
+					local c=Client:GetCurrentCharacter()
+					current=c and c.Root and r.regionAt(c.Root.Position) or nil
+					if current~=target then break end
+					refreshGroup(current)
+					pause(0.2)
+					continue
+				end
+
 				current=r.regionAt(Client:GetCurrentCharacter().Root.Position)
 				local groupTarget,currentMembers=refreshGroup(current)
 				if groupTarget~=target then break end
-
 				if current~=target then
 					status("Voltando ao bioma do grupo: "..target)
 					break
 				end
-
 				if not focus() then break end
 
 				local snapshot=prepareNeeds(target)
 				local attempted=runNeeds(target,snapshot)
-
-				-- Abaixo de 10% comida/agua tem prioridade absoluta, mas a conta
-				-- continua no mesmo bioma do grupo.
 				if snapshot.critical then
-					if not attempted then
-						status(target.." | Necessidade critica: procurando comida/agua no bioma atual")
-					end
+					if not attempted then status(target.." | Necessidade critica: procurando comida/agua no bioma atual") end
 					pause(0.5)
 					continue
 				end
@@ -131,15 +142,9 @@ return function(ctx)
 					table.insert(signature,tostring(a).."/"..tostring(b))
 				end
 				local sig=table.concat(signature,",")
-				if sig~=lastSignature then
-					lastProgress=os.clock()
-					lastSignature=sig
-				end
+				if sig~=lastSignature then lastProgress=os.clock();lastSignature=sig end
 
-				if not attempted then
-					missions.sniff.run(target)
-				end
-
+				if not attempted then missions.sniff.run(target) end
 				local waitingNeeds=snapshot.waitingNeeds
 				local waitingAttack=false
 				if not attempted then
@@ -147,13 +152,12 @@ return function(ctx)
 					attacked,waitingAttack=missions.attack.run(target)
 					attempted=attacked or attempted
 				end
-
 				if not attempted then
 					attempted=missions.shoom.run(target) or attempted
 					attempted=missions.mud.run(target) or attempted
 				end
 
-				missions.walk.run(target,snapshot,attempted)
+				attempted=missions.walk.run(target,snapshot,attempted) or attempted
 
 				if waitingNeeds then
 					status(target.." | Aguardando fome/sede cair; demais missoes continuam")
@@ -166,7 +170,7 @@ return function(ctx)
 					lastProgress=os.clock()
 					pause(5)
 				else
-					pause(1)
+					pause(0.6)
 				end
 			end
 

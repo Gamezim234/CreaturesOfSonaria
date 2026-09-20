@@ -2,6 +2,7 @@
 return function()
 	local Actions={}
 	local lastController
+	local commandedLaying=false
 
 	local function safe(callback)
 		local ok,result=pcall(callback)
@@ -64,6 +65,78 @@ return function()
 			if enabled then service:Sprint() else service:StopSprinting() end
 			return true
 		end)
+	end
+
+	local function layingState(character)
+		if not character then return nil end
+		local names={"Laying","IsLaying","LayingDown","Resting"}
+		local data=character.CharacterData
+		if data then
+			for _,name in ipairs(names) do
+				local ok,value=pcall(function() return data:Get(name) end)
+				if ok and type(value)=="boolean" then return value end
+			end
+		end
+		local model=character.Model
+		if model then
+			for _,name in ipairs(names) do
+				local value=model:GetAttribute(name)
+				if type(value)=="boolean" then return value end
+			end
+		end
+		for _,name in ipairs(names) do
+			local ok,value=pcall(function() return character[name] end)
+			if ok and type(value)=="boolean" then return value end
+		end
+		return nil
+	end
+
+	local function tapKey(code)
+		local ok=pcall(function()
+			keypress(code)
+			task.wait(0.05)
+			keyrelease(code)
+		end)
+		return ok
+	end
+
+	function Actions.isLaying()
+		local detected=layingState(getCharacter())
+		if detected~=nil then commandedLaying=detected end
+		return detected
+	end
+
+	function Actions.setLaying(enabled)
+		enabled=enabled==true
+		local character=getCharacter()
+		if not character then return false end
+		local detected=layingState(character)
+		if detected~=nil then commandedLaying=detected end
+		if detected==enabled then return true end
+
+		for _,name in ipairs({"SetLaying","SetLay","SetResting"}) do
+			local fn=character[name]
+			if type(fn)=="function" then
+				pcall(fn,character,enabled)
+				task.wait(0.15)
+				detected=layingState(character)
+				if detected==enabled then commandedLaying=enabled;return true end
+			end
+		end
+
+		if commandedLaying~=enabled then
+			tapKey(0x59)
+			task.wait(0.2)
+			detected=layingState(character)
+			if detected~=nil then commandedLaying=detected else commandedLaying=enabled end
+			if detected~=nil and detected~=enabled then
+				tapKey(0x54)
+				task.wait(0.2)
+				detected=layingState(character)
+				if detected~=nil then commandedLaying=detected end
+			end
+		end
+		return commandedLaying==enabled or layingState(character)==enabled
 	end
 
 	local function actionFromMenu(menu,hint)

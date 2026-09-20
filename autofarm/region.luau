@@ -11,6 +11,7 @@ return function(ctx)
 	local names, failures = {}, {}
 	local r = {state=state, UIS=UIS, Client=Client, Constants=Constants, Tags=Tags, failures=failures, missions={}}
 	r.actions=ctx.actions
+	local survival=ctx.survival
 	local function cleanupActions()
 		r.actions.stopMovement()
 		r.actions.setSprint(false)
@@ -48,12 +49,13 @@ return function(ctx)
 	end
 	local function active()
 		if not state.enabled or not state.running then cleanupActions();return false end
+		if survival and not survival.ensureReady() then cleanupActions();return false end
 		local c = Client:GetCurrentCharacter()
 		local slot = Client:GetCurrentSlot()
 		if not c or not c.Root or not c.Root.Parent or not slot
 				or (slot:FindFirstChild("Health") and slot.Health.Value <= 0) then
 			cleanupActions()
-			error("Personagem indisponivel. Entre com a criatura e inicie novamente.")
+			return false
 		end
 		r.needsEmergency()
 		return true
