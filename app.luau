@@ -2,17 +2,18 @@
 return function(import)
 	print("[CoS] app.luau iniciou")
 
-	local Players = game:GetService("Players")
-	local UIS = game:GetService("UserInputService")
-	local LocalPlayer = Players.LocalPlayer
-	local Camera = workspace.CurrentCamera
+	local Players=game:GetService("Players")
+	local UIS=game:GetService("UserInputService")
+	local LocalPlayer=Players.LocalPlayer
+	local Camera=workspace.CurrentCamera
 
-	local ctx:any={
+	local ctx={
 		state={
 			enabled=true,
 			running=false,
 			busy=false,
 			collecting=false,
+			recovering=false,
 			status="Parado",
 		},
 		player=LocalPlayer,
@@ -36,6 +37,7 @@ return function(import)
 			ctx.actions.setSprint(false)
 			ctx.actions.stopEatDrink()
 		end
+		if ctx.survival then ctx.survival.reset() end
 		if ctx.groupSync then ctx.groupSync.stop() end
 		ctx.stopHover()
 		if ctx.state.heldKey then pcall(keyrelease,ctx.state.heldKey) end
@@ -52,6 +54,7 @@ return function(import)
 	end
 
 	ctx.actions=loadMod("features/actions.luau")
+	ctx.survival=loadMod("features/survival.luau")
 	ctx.groupSync=loadMod("features/group_sync.luau")
 	ctx.teleport=loadMod("features/teleport.luau")
 	ctx.shoom=loadMod("features/shoompiles.luau")
