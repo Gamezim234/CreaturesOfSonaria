@@ -57,6 +57,59 @@ return function()
 		end)
 	end
 
+	local function findObjectAction(object,hint)
+		if type(filtergc)~="function" or typeof(object)~="Instance" then return nil end
+
+		local candidates={object}
+		if object:IsA("Model") then
+			if object.PrimaryPart then table.insert(candidates,object.PrimaryPart) end
+			local root=object:FindFirstChild("Root",true)
+			if root and root:IsA("BasePart") then table.insert(candidates,root) end
+			local part=object:FindFirstChildWhichIsA("BasePart",true)
+			if part then table.insert(candidates,part) end
+		end
+
+		for _,candidate in ipairs(candidates) do
+			local menu=filtergc("table",{
+				Keys={"Actions","Object"},
+				Values={candidate},
+			},true)
+			if type(menu)=="table" and type(menu.Actions)=="table" then
+				for _,action in ipairs(menu.Actions) do
+					if type(action)=="table"
+						and action.Hint==hint
+						and type(action.Run)=="function" then
+						return action
+					end
+				end
+			end
+		end
+
+		return nil
+	end
+
+	local function runObjectAction(object,hint)
+		return safe(function()
+			local action
+			for _=1,15 do
+				action=findObjectAction(object,hint)
+				if action then break end
+				task.wait(0.1)
+			end
+			if not action then return false end
+			action.Run()
+			return true
+		end)
+	end
+
+	function Actions.collectShoomPile(object)
+		return runObjectAction(object,"Collect")
+	end
+
+	function Actions.hideScent(object)
+		return runObjectAction(object,"Hide Scent")
+	end
+
 	local function findFoodAction(object)
 		local Food=module("Food")
 		if not Food or type(Food.GetFoodFromModel)~="function" then return nil end
