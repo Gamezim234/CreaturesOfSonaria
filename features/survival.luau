@@ -167,7 +167,7 @@ return function(ctx)
 	function api.needsRecovery(snapshot)
 		snapshot=snapshot or api.snapshot()
 		if not snapshot.alive then return true end
-		return snapshot.healthPct<0.82 or snapshot.acute==true
+		return snapshot.healthPct<0.92 or snapshot.acute==true
 	end
 
 	function api.handle(status)
@@ -218,7 +218,7 @@ return function(ctx)
 				state.recovering=false
 				return true,not ready
 			end
-		until (snapshot.healthPct>=0.95 and not snapshot.acute) or os.clock()>=deadline
+		until (snapshot.healthPct>=0.97 and not snapshot.acute) or os.clock()>=deadline
 
 		if resting then
 			ctx.actions.setResting(false)
