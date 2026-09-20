@@ -4,7 +4,9 @@ return function(ctx)
 	local player=ctx.player
 	local state=ctx.state
 	local actions=ctx.actions
-	local Sonar=require(ReplicatedStorage:WaitForChild("Sonar"))
+	local sonarModule=ReplicatedStorage:FindFirstChild("Sonar") :: any
+	assert(sonarModule,"Sonar nao encontrado")
+	local Sonar=require(sonarModule)
 	local Client=Sonar("PlayerWrapper").GetClient()
 	local RegionUtils=Sonar("RegionUtils")
 	local api:any={}
@@ -110,19 +112,11 @@ return function(ctx)
 	end
 
 	local function tornadoCaught(c)
+		if not c then return false end
+		if c._isBeingFlung==true or c.TornadoActive==true then return true end
 		local map=activeAilments(c)
 		local caught=containsWord(map,tornadoWords)
-		if caught then return true end
-		local gui=player:FindFirstChildOfClass("PlayerGui")
-		if gui then
-			for _,item in ipairs(gui:GetDescendants()) do
-				if item:IsA("GuiObject") and item.Visible then
-					local name=string.lower(item.Name)
-					if string.find(name,"tornado",1,true) or string.find(name,"twister",1,true) then return true end
-				end
-			end
-		end
-		return false
+		return caught==true
 	end
 
 	local function isReady()
@@ -161,19 +155,19 @@ return function(ctx)
 			end
 		end)
 
-		local restarted=false
-		local ok=pcall(function()
+		local ok,result=pcall(function()
 			local remote=ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("RestartSlotRemote")
-			remote:InvokeServer(slotName,false)
-			restarted=true
+			return remote:InvokeServer(slotName,false)
 		end)
-		if not ok or not restarted then return false end
+		if not ok or not result then return false end
 
 		task.wait(0.5)
 		local respawned=false
 		pcall(function()
 			local folder=ReplicatedStorage:WaitForChild("_replicationFolder")
-			local selection=require(folder:WaitForChild("SaveSelectionClient"))
+			local selectionModule=folder:FindFirstChild("SaveSelectionClient") :: any
+			if not selectionModule then return end
+			local selection=require(selectionModule)
 			selection.Respawn(slotName)
 			respawned=true
 		end)
@@ -193,8 +187,9 @@ return function(ctx)
 				return true
 			end
 
-			if not confirmedDead(c,slot) and os.clock()-lastReadyAt<3 then
-				task.wait(0.2)
+			if not confirmedDead(c,slot) then
+				status("Aguardando personagem/slot ficar pronto")
+				task.wait(0.25)
 				continue
 			end
 
@@ -287,15 +282,19 @@ return function(ctx)
 		state.recovering=true
 		cleanup()
 		status("Tornado | escapando...")
+
 		local deadline=os.clock()+7
 		repeat
-			actions.attack()
-			task.wait(0.08)
 			local c=Client:GetCurrentCharacter()
-			if c and not tornadoCaught(c) then break end
+			if not c then break end
+			if c._isBeingFlung==true then
+				-- Equivale a concluir o "Click to escape!" do fluxo local do tornado.
+				c._tornadoFlingCancelled=true
+			end
+			seekShelter(c)
+			if not tornadoCaught(c) then break end
+			task.wait(0.15)
 		until os.clock()>deadline or not state.running or not state.enabled
-		local c=Client:GetCurrentCharacter()
-		if c then seekShelter(c) end
 	end
 
 	local function recover(c,slot)

@@ -22,8 +22,10 @@ return function(ctx)
 
 	local Client
 	pcall(function()
-		local sonar=ReplicatedStorage:WaitForChild("Sonar")
-		Client=require(sonar)("PlayerWrapper").GetClient()
+		local sonar=ReplicatedStorage:FindFirstChild("Sonar") :: any
+		if not sonar then return end
+		local Sonar=require(sonar)
+		Client=Sonar("PlayerWrapper").GetClient()
 	end)
 
 	pcall(makefolder,FOLDER)
