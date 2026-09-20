@@ -2,19 +2,13 @@
 return function(import)
 	print("[CoS] app.luau iniciou")
 
-	local Players = game:GetService("Players")
-	local UIS = game:GetService("UserInputService")
-	local LocalPlayer = Players.LocalPlayer
-	local Camera = workspace.CurrentCamera
+	local Players=game:GetService("Players")
+	local UIS=game:GetService("UserInputService")
+	local LocalPlayer=Players.LocalPlayer
+	local Camera=workspace.CurrentCamera
 
 	local ctx:any={
-		state={
-			enabled=true,
-			running=false,
-			busy=false,
-			collecting=false,
-			status="Parado",
-		},
+		state={enabled=true,running=false,busy=false,collecting=false,status="Parado",recovering=false,survivalBusy=false},
 		player=LocalPlayer,
 		UIS=UIS,
 		camera=Camera,
@@ -22,19 +16,19 @@ return function(import)
 	}
 
 	function ctx.stopHover()
-		if ctx.state.hover then
-			ctx.state.hover:Disconnect()
-			ctx.state.hover=nil
-		end
+		if ctx.state.hover then ctx.state.hover:Disconnect();ctx.state.hover=nil end
 	end
 
 	ctx.farm={}
 	function ctx.farm.stop()
 		ctx.state.running=false
+		ctx.state.recovering=false
+		ctx.state.survivalBusy=false
 		if ctx.actions then
 			ctx.actions.stopMovement()
 			ctx.actions.setSprint(false)
 			ctx.actions.stopEatDrink()
+			ctx.actions.setLaying(false)
 		end
 		if ctx.groupSync then ctx.groupSync.stop() end
 		ctx.stopHover()
@@ -53,6 +47,7 @@ return function(import)
 
 	ctx.actions=loadMod("features/actions.luau")
 	ctx.groupSync=loadMod("features/group_sync.luau")
+	ctx.survival=loadMod("features/survival.luau")
 	ctx.teleport=loadMod("features/teleport.luau")
 	ctx.shoom=loadMod("features/shoompiles.luau")
 	ctx.servers=loadMod("features/servers.luau")
