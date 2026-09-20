@@ -141,6 +141,52 @@ return function(ctx)
 		return workspace:Raycast(Vector3.new(p.X, 1800, p.Z), Vector3.new(0, -2400, 0), params)
 	end
 
+	local function ensureLand(name)
+		if not active() then return false end
+		stopHover()
+
+		local c = Client:GetCurrentCharacter()
+		local root = c and c.Root
+		if not root then return false end
+
+		local humanoid = c.Model and c.Model:FindFirstChildOfClass("Humanoid")
+		local height = root.Size.Y / 2 + (humanoid and humanoid.HipHeight or 2) + 0.5
+		local currentHit = ground(root.Position)
+
+		-- Ja esta em terra seca e perto do chao: nao reposiciona.
+		if currentHit
+			and currentHit.Material ~= Enum.Material.Water
+			and regionAt(currentHit.Position) == name
+			and math.abs(root.Position.Y - currentHit.Position.Y) <= math.max(12, height * 2) then
+			return true
+		end
+
+		-- Sem ponto fixo: procura o terreno seco mais proximo da posicao atual.
+		local origin = root.Position
+		local radii = {18, 30, 45, 65, 90, 120, 160, 210, 270}
+		local directions = {
+			Vector2.new(1,0), Vector2.new(-1,0), Vector2.new(0,1), Vector2.new(0,-1),
+			Vector2.new(1,1).Unit, Vector2.new(-1,1).Unit,
+			Vector2.new(1,-1).Unit, Vector2.new(-1,-1).Unit,
+		}
+
+		for _,radius in ipairs(radii) do
+			for _,dir in ipairs(directions) do
+				local probe = Vector3.new(origin.X + dir.X * radius, origin.Y, origin.Z + dir.Y * radius)
+				local hit = ground(probe)
+				if hit and hit.Material ~= Enum.Material.Water and regionAt(hit.Position) == name then
+					local destination = hit.Position + Vector3.new(0, height, 0)
+					root.CFrame = CFrame.new(destination, destination + root.CFrame.LookVector)
+					root.AssemblyLinearVelocity = Vector3.zero
+					root.AssemblyAngularVelocity = Vector3.zero
+					return true
+				end
+			end
+		end
+
+		return false
+	end
+
 	local function go(p, name, mode, object)
 		cleanupActions()
 		stopHover()
@@ -232,6 +278,6 @@ return function(ctx)
 	r.active, r.pause, r.focus, r.press = active, pause, focus, press
 	r.status, r.progress, r.pending = status, progress, pending
 	r.position, r.regionAt, r.sources, r.ground = position, regionAt, sources, ground
-	r.go, r.interact, r.stopHover = go, interact, stopHover
+	r.go, r.interact, r.stopHover, r.ensureLand = go, interact, stopHover, ensureLand
 	return r
 end
