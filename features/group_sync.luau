@@ -226,16 +226,45 @@ return function(ctx)
 		return keys[1]
 	end
 
-	function api.chooseBiome()
+	function api.chooseBiome(preferredBiome)
 		local members=api.members()
 		local priorities={}
 		local unionPending={}
 		for _,member in ipairs(members) do
 			if type(member.priorityBiome)=="string" and member.priorityBiome~="" then priorities[member.priorityBiome]=true end
 			if type(member.pending)=="table" then
-				for biome,isPending in pairs(member.pending) do if isPending==true then unionPending[biome]=true end end
+				for biome,isPending in pairs(member.pending) do
+					if isPending==true then unionPending[biome]=true end
+				end
 			end
 		end
+
+		-- 1) Se o grupo ja escolheu um bioma e ele ainda tem qualquer missao
+		-- pendente em alguma conta, NAO troca de bioma. Como members esta ordenado
+		-- por UserId, todas as instancias convergem para o mesmo alvo.
+		for _,member in ipairs(members) do
+			local target=member.targetBiome
+			if type(target)=="string" and target~="" and unionPending[target]==true then
+				return target,members
+			end
+		end
+
+		-- 2) Se ainda nao existe alvo anunciado, usa o bioma atual da primeira
+		-- conta do grupo (members esta ordenado por UserId). Isso evita duas
+		-- instancias escolherem alvos diferentes no primeiro ciclo.
+		for _,member in ipairs(members) do
+			local biome=member.biome
+			if type(biome)=="string" and biome~="" and unionPending[biome]==true then
+				return biome,members
+			end
+		end
+
+		-- 3) Fallback local: se o bioma preferido ainda estiver pendente, fica nele.
+		if type(preferredBiome)=="string" and preferredBiome~="" and unionPending[preferredBiome]==true then
+			return preferredBiome,members
+		end
+
+		-- 4) So chega aqui quando o bioma anterior terminou em TODAS as contas.
 		return firstSortedKey(priorities) or firstSortedKey(unionPending),members
 	end
 
