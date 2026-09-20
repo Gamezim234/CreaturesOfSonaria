@@ -56,16 +56,14 @@ return function()
 			return true
 		end)
 	end
+
 	local function findFoodAction(object)
 		local Food=module("Food")
 		if not Food or type(Food.GetFoodFromModel)~="function" then return nil end
-
 		local food=Food.GetFoodFromModel(object)
 		local menu=food and food.ProximityMenu
 		local actions=menu and menu.Actions
-
 		if type(actions)~="table" then return nil end
-
 		for _,action in ipairs(actions) do
 			if type(action)=="table"
 				and action.Hint=="Eat"
@@ -74,31 +72,23 @@ return function()
 				return action
 			end
 		end
-
 		return nil
 	end
 
 	local function findDrinkAction()
 		if type(filtergc)~="function" then return nil end
-
 		local run=filtergc("function",{
 			Constants={"StartDrink"},
 			IgnoreExecutor=true,
 		},true)
-
 		if type(run)~="function" then return nil end
-
 		local action=filtergc("table",{
 			Keys={"Run","End","InteractMenu"},
 			Values={run},
 		},true)
-
-		if type(action)=="table"
-			and type(action.Run)=="function"
-			and type(action.End)=="function" then
+		if type(action)=="table" and type(action.Run)=="function" and type(action.End)=="function" then
 			return action
 		end
-
 		return nil
 	end
 
@@ -106,7 +96,6 @@ return function()
 		return safe(function()
 			local action=findFoodAction(object)
 			if not action then return false end
-
 			action.Run()
 			return true
 		end)
@@ -115,15 +104,12 @@ return function()
 	function Actions.startDrink()
 		return safe(function()
 			local action
-
 			for _=1,10 do
 				action=findDrinkAction()
 				if action then break end
 				task.wait(0.1)
 			end
-
 			if not action then return false end
-
 			action.Run()
 			return true
 		end)
@@ -132,6 +118,7 @@ return function()
 	function Actions.stopEatDrink()
 		return characterAction("StopEatDrink")
 	end
+
 	local function movement(controller,x,z)
 		controller.leftValue=math.min(x,0)
 		controller.rightValue=math.max(x,0)
@@ -155,7 +142,6 @@ return function()
 				return false
 			end
 			x,z=math.clamp(x,-1,1),math.clamp(z,-1,1)
-			-- Reter apenas o controlador usado, para libera-lo se houver troca/respawn.
 			lastController=controller
 			movement(controller,x,z)
 			if x==0 and z==0 then lastController=nil end

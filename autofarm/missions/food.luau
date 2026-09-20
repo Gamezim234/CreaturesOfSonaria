@@ -3,6 +3,7 @@ return function(r)
 	local state, UIS, Client = r.state, r.UIS, r.Client
 	local status, active, pause, focus = r.status, r.active, r.pause, r.focus
 	local progress, stopHover = r.progress, r.stopHover
+	local actions = r.actions
 
 	local Constants, ground = r.Constants, r.ground
 	local m = {kind="EatFoodDrinkWater", tag="Food", resource="Food"}
@@ -25,30 +26,31 @@ return function(r)
 
 		local hit = ground(p)
 		if not hit or hit.Material == Enum.Material.Water then return false end
-		-- Quase no centro, mantendo a comida a frente para o menu de interacao.
 		destination = Vector3.new(p.X, hit.Position.Y + height, p.Z + 0.75)
 
 		return destination,p
 	end
 	function m.perform(name,object,duration,before,resource)
-
 		status(name .. " | Comendo alimento herbivoro")
 		if not focus() then stopHover(); return false end
 		local character = Client:GetCurrentCharacter()
 		local capacity = character.CharacterData:GetWithModifiers("Appetite")
-		state.heldKey = 0x45
-		keypress(0x45)
+
+		if not actions.startEat(object) then
+			stopHover()
+			return false
+		end
+
 		local deadline = os.clock() + duration
 		repeat task.wait(0.1)
 		until not active()
 			or (resource and resource.Value >= capacity - 0.1) or os.clock() >= deadline
-		keyrelease(0x45)
-		state.heldKey = nil
+
+		actions.stopEatDrink()
 		stopHover()
 		pause(1)
 
 		return nil
-
 	end
 	function m.run(name,snapshot)
 		local amount,target=progress(name,m.kind)
