@@ -92,6 +92,7 @@ return function(ctx)
 						pause(0.5)
 					end
 				else
+					r.ensureLand(current)
 					status("Grupo sem missoes pendentes | "..groupLabel(members))
 					pause(5)
 				end
@@ -147,6 +148,7 @@ return function(ctx)
 				end
 
 				if not pending(target) then
+					r.ensureLand(target)
 					status(target.." | Minhas missoes prontas; aguardando grupo | "..groupLabel(currentMembers))
 					pause(1)
 					continue
@@ -182,8 +184,12 @@ return function(ctx)
 				attempted=missions.walk.run(target,snapshot,attempted) or attempted
 
 				if waitingNeeds then
+					r.ensureLand(target)
 					status(target.." | Aguardando fome/sede cair; demais missoes continuam")
+				elseif waitingAttack and not attempted then
+					r.ensureLand(target)
 				elseif not attempted and not waitingAttack then
+					r.ensureLand(target)
 					status(target.." | Aguardando intervalo ou recurso disponivel")
 				end
 
