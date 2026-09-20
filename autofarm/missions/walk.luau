@@ -28,8 +28,9 @@ return function(r)
 		local root=character.Root
 		local origin=root.Position
 		local lastAmount=a
+		local progressed=false
 
-		for hop=1,10 do
+		for _=1,10 do
 			if not r.active() then break end
 			local current=r.Client:GetCurrentCharacter()
 			if current~=character or not current.Root then break end
@@ -37,25 +38,25 @@ return function(r)
 			if amount>=target then return true end
 
 			local destination
-			for attempt=1,16 do
+			for _=1,16 do
 				local distance=80+math.random()*140
 				local angle=math.random()*math.pi*2
 				destination=validPoint(current.Root.Position,name,distance,angle)
 				if destination then break end
 			end
 
-			if destination then
-				teleport(current.Root,destination)
-			else
-				current.Root.CFrame=current.Root.CFrame+Vector3.new(0,120,0)
-				current.Root.AssemblyLinearVelocity=Vector3.zero
-				current.Root.AssemblyAngularVelocity=Vector3.zero
+			if not destination then
+				status(name.." | DistanceTravelled: nenhum ponto seguro encontrado")
+				break
 			end
+
+			teleport(current.Root,destination)
 
 			if not pause(0.18) then break end
 			local after=select(1,progress(name,m.kind))
 			if after>lastAmount then
 				lastAmount=after
+				progressed=true
 				status(name.." | DistanceTravelled "..after.."/"..b)
 			end
 		end
@@ -65,7 +66,7 @@ return function(r)
 			local hit=ground(origin)
 			if hit and regionAt(hit.Position)==name then teleport(current.Root,hit.Position) end
 		end
-		return true
+		return progressed
 	end
 
 	return m
